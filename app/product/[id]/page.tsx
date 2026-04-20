@@ -7,11 +7,13 @@ import Image from 'next/image';
 import { supabase, Product } from '@/lib/supabase';
 import { ArrowLeft, ShoppingBag, Star, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { useCart } from '@/context/CartContext';
 
 export default function ProductDetailPage() {
   const params = useParams();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const { addToCart } = useCart();
 
   useEffect(() => {
     fetchProduct();
@@ -88,14 +90,20 @@ export default function ProductDetailPage() {
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             <div className="relative aspect-square rounded-3xl overflow-hidden bg-white shadow-2xl">
-              <Image
-                src={product.image_url}
-                alt={product.name}
-                fill
-                className="object-cover"
-                priority
-                sizes="(max-width: 1024px) 100vw, 50vw"
-              />
+              {product.image_url ? (
+                <Image
+                  src={product.image_url}
+                  alt={product.name}
+                  fill
+                  className="object-cover"
+                  priority
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-pink-100 to-purple-100 flex items-center justify-center">
+                  <span className="text-6xl">💄</span>
+                </div>
+              )}
               <div className="absolute top-6 left-6">
                 {product.featured && (
                   <motion.div
@@ -186,7 +194,7 @@ export default function ProductDetailPage() {
               transition={{ delay: 0.8 }}
             >
               <div className="text-5xl font-bold text-gradient mb-2">
-                ${product.price.toFixed(2)}
+                ${(product.price_cents / 100).toFixed(2)}
               </div>
               <p className="text-sm text-gray-500">Free shipping on orders over $50</p>
             </motion.div>
@@ -201,6 +209,7 @@ export default function ProductDetailPage() {
                 className="flex-1 px-8 py-4 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-full font-semibold text-lg shadow-lg hover:shadow-2xl transition-shadow flex items-center justify-center gap-2 glow-pink"
                 whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
+                onClick={() => product && addToCart(product)}
               >
                 <ShoppingBag className="w-5 h-5" />
                 Buy Now

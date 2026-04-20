@@ -3,14 +3,19 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, ShoppingBag } from 'lucide-react';
+import { useCart } from '@/context/CartContext';
 
 export default function Navigation() {
   const pathname = usePathname();
+  const { cartItems } = useCart();
+  
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const links = [
     { href: '/', label: 'Home' },
     { href: '/shop', label: 'Shop' },
+    { href: '/checkout', label: 'Checkout' },
     { href: '/about', label: 'About' },
     { href: '/contact', label: 'Contact' },
     { href: '/admin', label: 'Admin' },
@@ -33,7 +38,7 @@ export default function Navigation() {
               <Sparkles className="w-8 h-8 text-pink-600" />
             </motion.div>
             <span className="text-2xl font-bold bg-gradient-to-r from-pink-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-              LuxeBeauty
+              bukbao
             </span>
           </Link>
 
@@ -59,6 +64,27 @@ export default function Navigation() {
                 )}
               </Link>
             ))}
+            
+            {/* Shopping Cart Icon with Badge */}
+            <Link href="/checkout" className="relative">
+              <motion.div
+                whileHover={{ scale: 1.1, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ShoppingBag className="w-6 h-6 text-gray-700 hover:text-pink-600 transition-colors" />
+                {totalItems > 0 && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-gradient-to-r from-pink-600 to-purple-600 rounded-full flex items-center justify-center"
+                  >
+                    <span className="text-xs font-bold text-white">{totalItems}</span>
+                  </motion.div>
+                )}
+              </motion.div>
+            </Link>
+
           </div>
         </div>
       </div>

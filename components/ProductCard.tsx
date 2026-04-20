@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Product } from '@/lib/supabase';
 import { ShoppingBag } from 'lucide-react';
+import { useCart } from '@/context/CartContext';
 
 interface ProductCardProps {
   product: Product;
@@ -12,6 +13,14 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, index = 0 }: ProductCardProps) {
+  const { addToCart } = useCart();
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addToCart(product);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }}
@@ -30,25 +39,33 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
               whileHover={{ scale: 1.1 }}
               transition={{ duration: 0.6 }}
             >
-              <Image
-                src={product.image_url}
-                alt={product.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-              />
+              {product.image_url ? (
+                <Image
+                  src={product.image_url}
+                  alt={product.name}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-pink-100 to-purple-100 flex items-center justify-center">
+                  <span className="text-4xl">💄</span>
+                </div>
+              )}
             </motion.div>
 
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-            <motion.div
-              className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100"
+            <motion.button
+              className="absolute bottom-4 right-4 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 cursor-pointer z-10"
               initial={{ scale: 0, rotate: -180 }}
-              whileHover={{ scale: 1, rotate: 0 }}
+              whileHover={{ scale: 1.1, rotate: 0 }}
+              whileTap={{ scale: 0.9 }}
               transition={{ duration: 0.3 }}
+              onClick={handleAddToCart}
             >
               <ShoppingBag className="w-5 h-5 text-pink-600" />
-            </motion.div>
+            </motion.button>
           </div>
 
           <div className="p-6">
@@ -75,7 +92,7 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
                 className="text-2xl font-bold text-gradient"
                 whileHover={{ scale: 1.05 }}
               >
-                ${product.price.toFixed(2)}
+                ${(product.price_cents / 100).toFixed(2)}
               </motion.div>
 
               <motion.div

@@ -59,7 +59,7 @@ export default function ContactPage() {
                 {
                   icon: Mail,
                   title: 'Email',
-                  content: 'hello@luxebeauty.com',
+                  content: 'hello@bukbao.com',
                 },
                 {
                   icon: Phone,

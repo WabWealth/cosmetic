@@ -23,10 +23,17 @@ export default function AdminPage() {
     e.preventDefault();
     setLoading(true);
 
+    // Convert price to cents for database storage
+    const priceInCents = Math.round(parseFloat(formData.price) * 100);
+
+    // Destructure to exclude 'price' from formData since database only has 'price_cents'
+    const { price, ...restFormData } = formData;
+
     const { error } = await supabase.from('products').insert([
       {
-        ...formData,
-        price: parseFloat(formData.price),
+        ...restFormData,
+        price_cents: priceInCents,
+        currency: 'USD', // Add currency field
       },
     ]);
 
@@ -46,12 +53,15 @@ export default function AdminPage() {
         setSuccess(false);
         router.push('/shop');
       }, 2000);
+    } else {
+      console.error('Error adding product:', error);
+      alert(`Failed to add product: ${error.message}`);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-50 via-white to-purple-50">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <motion.div
           className="text-center mb-12"
           initial={{ opacity: 0, y: 30 }}
@@ -70,17 +80,19 @@ export default function AdminPage() {
             <span className="text-gradient">Admin Dashboard</span>
           </h1>
           <p className="text-xl text-gray-600">
-            Add new products to your luxury collection
+            Add new products to your premium collection
           </p>
         </motion.div>
 
-        <motion.div
-          className="glass-card p-8 md:p-12 rounded-3xl shadow-2xl"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Form Section */}
+          <motion.div
+            className="glass-card p-8 md:p-12 rounded-3xl shadow-2xl"
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            <form onSubmit={handleSubmit} className="space-y-6">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -286,6 +298,64 @@ export default function AdminPage() {
             </motion.div>
           )}
         </motion.div>
+
+        {/* Preview Section */}
+        <motion.div
+          className="glass-card p-8 md:p-12 rounded-3xl shadow-2xl sticky top-8"
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+        >
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">Preview</h2>
+          <div className="bg-white rounded-3xl overflow-hidden shadow-lg">
+            {formData.image_url ? (
+              <div className="relative aspect-square overflow-hidden bg-gray-100">
+                <img
+                  src={formData.image_url}
+                  alt={formData.name || 'Product preview'}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/500x500?text=Invalid+URL';
+                  }}
+                />
+                {formData.featured && (
+                  <div className="absolute top-4 left-4 px-3 py-1 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-full text-xs font-semibold">
+                    Featured
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="aspect-square bg-gradient-to-br from-pink-100 to-purple-100 flex items-center justify-center">
+                <span className="text-6xl">💄</span>
+              </div>
+            )}
+            
+            <div className="p-6">
+              {formData.category && (
+                <span className="text-xs font-semibold text-pink-600 uppercase tracking-wider">
+                  {formData.category}
+                </span>
+              )}
+              
+              <h3 className="text-2xl font-bold text-gray-800 mt-2 mb-2">
+                {formData.name || 'Product Name'}
+              </h3>
+              
+              {formData.description && (
+                <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                  {formData.description}
+                </p>
+              )}
+              
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-3xl font-bold text-gradient">
+                  ${formData.price || '0.00'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+        </div>
 
         <motion.div
           className="absolute top-20 right-20 w-64 h-64 bg-gradient-to-br from-pink-400/10 to-purple-400/10 rounded-full blur-3xl -z-10"

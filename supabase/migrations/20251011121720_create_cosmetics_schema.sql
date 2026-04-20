@@ -2,7 +2,7 @@
   # Cosmetics E-commerce Database Schema
 
   ## Overview
-  Creates the database structure for a luxury cosmetics e-commerce platform with products and contact messages.
+  Creates the database structure for a premium cosmetics e-commerce platform with products and contact messages.
 
   ## New Tables
   
