@@ -43,7 +43,13 @@ export default function CheckoutPage() {
       console.log('🟢 [CHECKOUT] Response status:', response.status);
       console.log('🟢 [CHECKOUT] Response ok:', response.ok);
       
-      const responseData = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      const responseData = contentType.includes('application/json')
+        ? await response.json()
+        : {
+            error: 'Checkout API returned a non-JSON response',
+            details: `Status ${response.status}. Make sure your deployment has STRIPE_SECRET_KEY configured.`,
+          };
       console.log('🟢 [CHECKOUT] Response data:', responseData);
 
       if (!response.ok) {

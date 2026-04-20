@@ -1,17 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-09-30.clover',
-});
-
 export async function POST(request: NextRequest) {
   console.log('🔵 [STRIPE API] Request received');
-  
-  // Check environment variables
+
+  // Check environment variables early and return JSON (not HTML error pages).
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    request.headers.get('origin') ||
+    new URL(request.url).origin;
+
+  if (!stripeSecretKey) {
+    return NextResponse.json(
+      {
+        error: 'Missing STRIPE_SECRET_KEY',
+        details: 'Set STRIPE_SECRET_KEY in your deployment environment variables.',
+      },
+      { status: 500 }
+    );
+  }
+
+  const stripe = new Stripe(stripeSecretKey, {
+    apiVersion: '2025-09-30.clover',
+  });
+
   console.log('🔵 [STRIPE API] Environment check:', {
     hasStripeKey: !!stripeSecretKey,
     stripeKeyPrefix: stripeSecretKey ? stripeSecretKey.substring(0, 20) + '...' : 'MISSING',
