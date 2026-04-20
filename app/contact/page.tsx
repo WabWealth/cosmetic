@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { Send, Mail, MapPin, Phone, CheckCircle } from 'lucide-react';
+import { Send, Mail, MapPin, Phone, CircleCheck as CheckCircle } from 'lucide-react';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -97,30 +97,30 @@ export default function ContactPage() {
             </div>
 
             <motion.div
-              className="glass-card p-8 rounded-3xl"
+              className="glass-card-premium p-10 rounded-3xl glow-pink"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.7 }}
             >
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">
-                Why Choose Us?
+              <h3 className="text-2xl font-bold text-gradient mb-6">
+                Why Choose BukBao?
               </h3>
-              <ul className="space-y-3 text-gray-600">
-                <li className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-pink-600" />
-                  Expert beauty consultations
+              <ul className="space-y-4 text-gray-600">
+                <li className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 flex-shrink-0" />
+                  Expert beauty consultations & personalized guidance
                 </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-pink-600" />
-                  Fast and secure shipping
+                <li className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 flex-shrink-0" />
+                  Fast, secure shipping on all orders
                 </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-pink-600" />
+                <li className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 flex-shrink-0" />
                   30-day satisfaction guarantee
                 </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-pink-600" />
-                  Award-winning customer service
+                <li className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 flex-shrink-0" />
+                  Award-winning luxury beauty expertise
                 </li>
               </ul>
             </motion.div>
@@ -151,7 +151,7 @@ export default function ContactPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  className="w-full px-6 py-4 rounded-2xl bg-white/70 backdrop-blur-sm border-2 border-gray-200 focus:border-pink-400 focus:outline-none transition-colors"
+                  className="w-full px-6 py-4 rounded-2xl glass-card-premium border-2 border-pink-200/50 focus:border-amber-400/70 focus:outline-none transition-colors"
                   placeholder="John Doe"
                   whileFocus={{ scale: 1.02 }}
                 />
@@ -164,7 +164,7 @@ export default function ContactPage() {
               >
                 <label
                   htmlFor="email"
-                  className="block text-sm font-semibold text-gray-700 mb-2"
+                  className="block text-sm font-bold text-gray-800 mb-2"
                 >
                   Email Address
                 </label>
@@ -176,7 +176,7 @@ export default function ContactPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
-                  className="w-full px-6 py-4 rounded-2xl bg-white/70 backdrop-blur-sm border-2 border-gray-200 focus:border-pink-400 focus:outline-none transition-colors"
+                  className="w-full px-6 py-4 rounded-2xl glass-card-premium border-2 border-pink-200/50 focus:border-amber-400/70 focus:outline-none transition-colors"
                   placeholder="john@example.com"
                   whileFocus={{ scale: 1.02 }}
                 />
@@ -189,7 +189,7 @@ export default function ContactPage() {
               >
                 <label
                   htmlFor="message"
-                  className="block text-sm font-semibold text-gray-700 mb-2"
+                  className="block text-sm font-bold text-gray-800 mb-2"
                 >
                   Your Message
                 </label>
