@@ -40,9 +40,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const stripe = new Stripe(stripeSecretKey, {
-    apiVersion: '2025-09-30.clover',
-  });
+  const trimmedKey = stripeSecretKey.trim();
+  if (!/^sk_(test|live)_/.test(trimmedKey)) {
+    return NextResponse.json(
+      {
+        error: 'Invalid STRIPE_SECRET_KEY format',
+        details:
+          'Stripe secret keys must start with sk_test_ or sk_live_ (from Stripe Dashboard → Developers → API keys → Secret key). If you see sk_ctest_, that is a typo — use sk_test_. Do not use the Publishable key (pk_) here.',
+        code: 'INVALID_KEY_PREFIX',
+      },
+      { status: 500 }
+    );
+  }
+
+  const stripe = new Stripe(trimmedKey);
 
   console.log('🔵 [STRIPE API] Environment check:', {
     hasStripeKey: !!stripeSecretKey,
