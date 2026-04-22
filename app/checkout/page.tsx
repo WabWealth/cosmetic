@@ -59,26 +59,68 @@ export default function CheckoutPage() {
       };
       
       console.log('🟢 [CHECKOUT] Sending request to API:', JSON.stringify(requestBody, null, 2));
-      
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
+
+      const controller = new AbortController();
+      const checkoutTimeoutMs = 45_000;
+      const timeoutId = setTimeout(() => controller.abort(), checkoutTimeoutMs);
+
+      let response: Response;
+      try {
+        response = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+      } catch (fetchErr: unknown) {
+        const name =
+          fetchErr && typeof fetchErr === 'object' && 'name' in fetchErr
+            ? (fetchErr as Error).name
+            : '';
+        if (name === 'AbortError') {
+          alert(
+            `Checkout timed out after ${checkoutTimeoutMs / 1000}s. Your preview may not reach Stripe — set STRIPE_SECRET_KEY in Bolt env and redeploy, or deploy to Vercel.`
+          );
+          return;
+        }
+        throw fetchErr;
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       console.log('🟢 [CHECKOUT] Response status:', response.status);
       console.log('🟢 [CHECKOUT] Response ok:', response.ok);
-      
-      const contentType = response.headers.get('content-type') || '';
-      const responseData = contentType.includes('application/json')
-        ? await response.json()
-        : {
-            error: 'Checkout API returned a non-JSON response',
-            details: `Status ${response.status}. Make sure your deployment has STRIPE_SECRET_KEY configured.`,
-          };
+
+      const rawText = await response.text();
+      let responseData: {
+        error?: string;
+        details?: string;
+        code?: string;
+        sessionId?: string;
+        url?: string;
+      };
+      try {
+        responseData = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        responseData = {
+          error: 'Checkout API returned non-JSON',
+          details: `${response.status} ${response.statusText}: ${rawText.slice(0, 280)}`,
+        };
+      }
       console.log('🟢 [CHECKOUT] Response data:', responseData);
+
+      const formatApiError = () => {
+        const detailMsg = [
+          responseData.details,
+          responseData.code && responseData.code !== 'UNKNOWN' ? `[${responseData.code}]` : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+        return detailMsg || responseData.error || 'Failed to create checkout session';
+      };
 
       if (!response.ok) {
         console.error('❌ [CHECKOUT] API returned error:', {
@@ -86,17 +128,15 @@ export default function CheckoutPage() {
           statusText: response.statusText,
           data: responseData,
         });
-        alert(`Error: ${responseData.error || responseData.details || 'Failed to create checkout session'}`);
-        setProcessing(false);
+        alert(`Error: ${formatApiError()}`);
         return;
       }
 
       const { sessionId, url, error: responseError } = responseData;
-      
+
       if (responseError) {
         console.error('❌ [CHECKOUT] Error in response:', responseData);
         alert(`Error: ${responseError}`);
-        setProcessing(false);
         return;
       }
 
@@ -120,7 +160,6 @@ export default function CheckoutPage() {
 
       console.error('❌ [CHECKOUT] No session URL or ID in response:', responseData);
       alert('Error: No checkout URL received from server');
-      setProcessing(false);
     } catch (error: any) {
       console.error('❌ [CHECKOUT] Error in checkout process:');
       console.error('❌ [CHECKOUT] Error type:', error?.constructor?.name);

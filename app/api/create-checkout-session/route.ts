@@ -1,10 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
+function stripeErrorParts(error: unknown): { message: string; code: string } {
+  if (error && typeof error === 'object') {
+    const e = error as Record<string, unknown>;
+    const raw = e.raw as Record<string, unknown> | undefined;
+    const message =
+      (typeof e.message === 'string' && e.message) ||
+      (typeof raw?.message === 'string' && raw.message) ||
+      (typeof (raw?.error as Record<string, unknown> | undefined)?.message === 'string' &&
+        String((raw?.error as { message: string }).message)) ||
+      'Stripe request failed — see server logs.';
+    const code =
+      (typeof e.code === 'string' && e.code) ||
+      (typeof e.type === 'string' && e.type) ||
+      (typeof raw?.code === 'string' && raw.code) ||
+      'UNKNOWN';
+    return { message, code };
+  }
+  return { message: String(error), code: 'UNKNOWN' };
+}
+
 export async function POST(request: NextRequest) {
   console.log('🔵 [STRIPE API] Request received');
 
-  // Check environment variables early and return JSON (not HTML error pages).
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
@@ -27,7 +46,7 @@ export async function POST(request: NextRequest) {
 
   console.log('🔵 [STRIPE API] Environment check:', {
     hasStripeKey: !!stripeSecretKey,
-    stripeKeyPrefix: stripeSecretKey ? stripeSecretKey.substring(0, 20) + '...' : 'MISSING',
+    stripeKeyPrefix: stripeSecretKey ? stripeSecretKey.substring(0, 12) + '...' : 'MISSING',
     siteUrl: siteUrl || 'MISSING',
   });
 
@@ -37,13 +56,20 @@ export async function POST(request: NextRequest) {
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       console.error('❌ [STRIPE API] No items provided');
-      return NextResponse.json(
-        { error: 'No items provided' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No items provided' }, { status: 400 });
     }
 
-    // Validate items structure
+    const safeImageUrl = (url: unknown): string[] => {
+      if (typeof url !== 'string' || !url.trim()) return [];
+      try {
+        const u = new URL(url);
+        if (u.protocol === 'https:') return [url];
+      } catch {
+        /* ignore */
+      }
+      return [];
+    };
+
     const validatedItems = items.map((item: any) => {
       if (!item.name || !item.price || !item.quantity) {
         throw new Error(`Invalid item structure: ${JSON.stringify(item)}`);
@@ -53,9 +79,9 @@ export async function POST(request: NextRequest) {
           currency: 'usd',
           product_data: {
             name: item.name,
-            images: item.image ? [item.image] : [],
+            images: safeImageUrl(item.image),
           },
-          unit_amount: Math.round(item.price * 100), // Convert to cents
+          unit_amount: Math.round(item.price * 100),
         },
         quantity: item.quantity,
       };
@@ -65,7 +91,6 @@ export async function POST(request: NextRequest) {
     console.log('🔵 [STRIPE API] Success URL:', `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`);
     console.log('🔵 [STRIPE API] Cancel URL:', `${siteUrl}/checkout/cancel`);
 
-    // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: validatedItems,
@@ -73,12 +98,15 @@ export async function POST(request: NextRequest) {
       success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/checkout/cancel`,
       metadata: {
-        items: JSON.stringify(items),
+        item_ids: items
+          .map((i: { id?: string }) => i.id)
+          .filter(Boolean)
+          .slice(0, 20)
+          .join(','),
       },
-      customer_email: undefined, // You can add customer email collection if needed
       billing_address_collection: 'required',
       shipping_address_collection: {
-        allowed_countries: ['US', 'CA', 'GB', 'AU'], // Add more countries as needed
+        allowed_countries: ['US', 'CA', 'GB', 'AU'],
       },
     });
 
@@ -87,25 +115,19 @@ export async function POST(request: NextRequest) {
       url: session.url,
     });
 
-    // Return both sessionId and url for compatibility
-    return NextResponse.json({ 
+    return NextResponse.json({
       sessionId: session.id,
       url: session.url,
     });
-  } catch (error: any) {
-    console.error('❌ [STRIPE API] Error creating checkout session:');
-    console.error('❌ [STRIPE API] Error type:', error?.constructor?.name);
-    console.error('❌ [STRIPE API] Error message:', error?.message);
-    console.error('❌ [STRIPE API] Error code:', error?.code);
-    console.error('❌ [STRIPE API] Error statusCode:', error?.statusCode);
-    console.error('❌ [STRIPE API] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-    console.error('❌ [STRIPE API] Stack trace:', error?.stack);
-    
+  } catch (error: unknown) {
+    const { message, code } = stripeErrorParts(error);
+    console.error('❌ [STRIPE API] Error creating checkout session:', message, code);
+
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to create checkout session',
-        details: error?.message || 'Unknown error',
-        code: error?.code || 'UNKNOWN',
+        details: message,
+        code,
       },
       { status: 500 }
     );
