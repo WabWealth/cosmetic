@@ -1,26 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-function stripeErrorParts(error: unknown): { message: string; code: string } {
-  if (error && typeof error === 'object') {
-    const e = error as Record<string, unknown>;
-    const raw = e.raw as Record<string, unknown> | undefined;
-    const message =
-      (typeof e.message === 'string' && e.message) ||
-      (typeof raw?.message === 'string' && raw.message) ||
-      (typeof (raw?.error as Record<string, unknown> | undefined)?.message === 'string' &&
-        String((raw?.error as { message: string }).message)) ||
-      'Stripe request failed — see server logs.';
-    const code =
-      (typeof e.code === 'string' && e.code) ||
-      (typeof e.type === 'string' && e.type) ||
-      (typeof raw?.code === 'string' && raw.code) ||
-      'UNKNOWN';
-    return { message, code };
-  }
-  return { message: String(error), code: 'UNKNOWN' };
-}
-
 export async function POST(request: NextRequest) {
   console.log('🔵 [STRIPE API] Request received');
 
@@ -63,18 +43,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const safeImageUrl = (url: unknown): string[] => {
-      if (typeof url !== 'string' || !url.trim()) return [];
-      // Stripe requires publicly reachable HTTPS URLs for Checkout images
-      try {
-        const u = new URL(url);
-        if (u.protocol === 'https:') return [url];
-      } catch {
-        /* ignore */
-      }
-      return [];
-    };
-
     // Validate items structure
     const validatedItems = items.map((item: any) => {
       if (!item.name || !item.price || !item.quantity) {
@@ -85,7 +53,7 @@ export async function POST(request: NextRequest) {
           currency: 'usd',
           product_data: {
             name: item.name,
-            images: safeImageUrl(item.image),
+            images: item.image ? [item.image] : [],
           },
           unit_amount: Math.round(item.price * 100), // Convert to cents
         },
@@ -104,13 +72,8 @@ export async function POST(request: NextRequest) {
       mode: 'payment',
       success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/checkout/cancel`,
-      // Stripe metadata: each value max 500 chars — avoid dumping full cart JSON
       metadata: {
-        item_ids: items
-          .map((i: { id?: string }) => i.id)
-          .filter(Boolean)
-          .slice(0, 20)
-          .join(','),
+        items: JSON.stringify(items),
       },
       customer_email: undefined, // You can add customer email collection if needed
       billing_address_collection: 'required',
@@ -129,21 +92,20 @@ export async function POST(request: NextRequest) {
       sessionId: session.id,
       url: session.url,
     });
-  } catch (error: unknown) {
-    const { message, code } = stripeErrorParts(error);
+  } catch (error: any) {
     console.error('❌ [STRIPE API] Error creating checkout session:');
-    console.error('❌ [STRIPE API] Resolved message:', message);
-    console.error('❌ [STRIPE API] Resolved code:', code);
-    console.error(
-      '❌ [STRIPE API] Full error:',
-      JSON.stringify(error, Object.getOwnPropertyNames(Object(error)), 2)
-    );
-
+    console.error('❌ [STRIPE API] Error type:', error?.constructor?.name);
+    console.error('❌ [STRIPE API] Error message:', error?.message);
+    console.error('❌ [STRIPE API] Error code:', error?.code);
+    console.error('❌ [STRIPE API] Error statusCode:', error?.statusCode);
+    console.error('❌ [STRIPE API] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+    console.error('❌ [STRIPE API] Stack trace:', error?.stack);
+    
     return NextResponse.json(
-      {
+      { 
         error: 'Failed to create checkout session',
-        details: message,
-        code,
+        details: error?.message || 'Unknown error',
+        code: error?.code || 'UNKNOWN',
       },
       { status: 500 }
     );
