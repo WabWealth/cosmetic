@@ -1,16 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { supabase, Product } from '@/lib/supabase';
 import ProductCard from '@/components/ProductCard';
-import { Sparkles, Database, Search, X } from 'lucide-react';
+import { Sparkles, Database, Search, X, PackageSearch, Send, CircleCheck } from 'lucide-react';
 
 export default function ShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestLoading, setRequestLoading] = useState(false);
+  const [requestSuccess, setRequestSuccess] = useState('');
+  const [requestError, setRequestError] = useState('');
+  const [requestForm, setRequestForm] = useState({
+    name: '',
+    email: '',
+    productName: '',
+    message: '',
+  });
 
   // Helper function to convert cents to dollars
   const formatPrice = (priceCents: number) => {
@@ -150,6 +160,58 @@ export default function ShopPage() {
     return categoryMatch && searchMatch;
   });
 
+  const openRequestModal = () => {
+    setRequestError('');
+    setRequestSuccess('');
+    setRequestForm((prev) => ({
+      ...prev,
+      productName: searchQuery || prev.productName,
+    }));
+    setShowRequestModal(true);
+  };
+
+  const submitProductRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRequestLoading(true);
+    setRequestError('');
+    setRequestSuccess('');
+
+    try {
+      const response = await fetch('/api/product-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...requestForm,
+          searchQuery,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setRequestError(data?.error || 'Failed to send request');
+        return;
+      }
+
+      setRequestSuccess(
+        data?.emailSent
+          ? 'Request sent! We received it and emailed your team notification.'
+          : 'Request saved successfully! Your team can review it in messages.'
+      );
+      setRequestForm({
+        name: '',
+        email: '',
+        productName: '',
+        message: '',
+      });
+    } catch (err: unknown) {
+      setRequestError(err instanceof Error ? err.message : 'Failed to submit request');
+    } finally {
+      setRequestLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-50 via-white to-purple-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -273,6 +335,15 @@ export default function ShopPage() {
             animate={{ opacity: 1 }}
           >
             <p className="text-xl text-gray-600">No products found in this category.</p>
+            <motion.button
+              onClick={openRequestModal}
+              className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all"
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <PackageSearch className="w-5 h-5" />
+              Request This Product
+            </motion.button>
           </motion.div>
         ) : (
           <motion.div
@@ -286,7 +357,119 @@ export default function ShopPage() {
             ))}
           </motion.div>
         )}
+
+        <motion.div
+          className="text-center mt-16"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.35 }}
+        >
+          <p className="text-gray-600 mb-4">Can't find what you're looking for?</p>
+          <motion.button
+            onClick={openRequestModal}
+            className="inline-flex items-center gap-2 px-6 py-3 border border-pink-300 text-pink-700 rounded-full font-semibold hover:bg-pink-50 transition-all"
+            whileHover={{ scale: 1.05, y: -2 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <PackageSearch className="w-5 h-5" />
+            Request a Product
+          </motion.button>
+        </motion.div>
       </div>
+
+      <AnimatePresence>
+        {showRequestModal && (
+          <>
+            <motion.div
+              className="fixed inset-0 bg-black/50 z-50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowRequestModal(false)}
+            />
+
+            <motion.div
+              className="fixed inset-0 z-50 flex items-center justify-center px-4"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            >
+              <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-8 relative">
+                <button
+                  onClick={() => setShowRequestModal(false)}
+                  className="absolute top-4 right-4 w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Request a Product</h2>
+                <p className="text-gray-600 mb-6">
+                  Tell us what product you want and we will review it for our store.
+                </p>
+
+                <form onSubmit={submitProductRequest} className="space-y-4">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Your name"
+                    value={requestForm.name}
+                    onChange={(e) => setRequestForm({ ...requestForm, name: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none"
+                  />
+
+                  <input
+                    type="email"
+                    required
+                    placeholder="Your email"
+                    value={requestForm.email}
+                    onChange={(e) => setRequestForm({ ...requestForm, email: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none"
+                  />
+
+                  <input
+                    type="text"
+                    required
+                    placeholder="Requested product name"
+                    value={requestForm.productName}
+                    onChange={(e) => setRequestForm({ ...requestForm, productName: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none"
+                  />
+
+                  <textarea
+                    rows={4}
+                    placeholder="Optional details (brand, ingredients, size, etc.)"
+                    value={requestForm.message}
+                    onChange={(e) => setRequestForm({ ...requestForm, message: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none resize-none"
+                  />
+
+                  {requestError && (
+                    <p className="text-sm text-red-600">{requestError}</p>
+                  )}
+
+                  {requestSuccess && (
+                    <p className="text-sm text-green-700 flex items-center gap-2">
+                      <CircleCheck className="w-4 h-4" />
+                      {requestSuccess}
+                    </p>
+                  )}
+
+                  <motion.button
+                    type="submit"
+                    disabled={requestLoading}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-xl font-semibold disabled:opacity-50"
+                    whileHover={{ scale: requestLoading ? 1 : 1.02 }}
+                    whileTap={{ scale: requestLoading ? 1 : 0.98 }}
+                  >
+                    {requestLoading ? 'Sending...' : 'Send Request'}
+                    <Send className="w-4 h-4" />
+                  </motion.button>
+                </form>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
