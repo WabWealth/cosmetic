@@ -43,6 +43,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const safeImageUrl = (url: unknown): string[] => {
+      if (typeof url !== 'string' || !url.trim()) return [];
+      // Stripe requires publicly reachable HTTPS URLs for Checkout images
+      try {
+        const u = new URL(url);
+        if (u.protocol === 'https:') return [url];
+      } catch {
+        /* ignore */
+      }
+      return [];
+    };
+
     // Validate items structure
     const validatedItems = items.map((item: any) => {
       if (!item.name || !item.price || !item.quantity) {
@@ -53,7 +65,7 @@ export async function POST(request: NextRequest) {
           currency: 'usd',
           product_data: {
             name: item.name,
-            images: item.image ? [item.image] : [],
+            images: safeImageUrl(item.image),
           },
           unit_amount: Math.round(item.price * 100), // Convert to cents
         },
@@ -72,8 +84,13 @@ export async function POST(request: NextRequest) {
       mode: 'payment',
       success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/checkout/cancel`,
+      // Stripe metadata: each value max 500 chars — avoid dumping full cart JSON
       metadata: {
-        items: JSON.stringify(items),
+        item_ids: items
+          .map((i: { id?: string }) => i.id)
+          .filter(Boolean)
+          .slice(0, 20)
+          .join(','),
       },
       customer_email: undefined, // You can add customer email collection if needed
       billing_address_collection: 'required',

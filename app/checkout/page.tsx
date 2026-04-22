@@ -58,7 +58,9 @@ export default function CheckoutPage() {
           statusText: response.statusText,
           data: responseData,
         });
-        alert(`Error: ${responseData.error || responseData.details || 'Failed to create checkout session'}`);
+        alert(
+          `Error: ${responseData.details || responseData.error || 'Failed to create checkout session'}`
+        );
         setProcessing(false);
         return;
       }
