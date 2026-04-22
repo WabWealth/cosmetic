@@ -5,6 +5,34 @@ import { motion } from 'framer-motion';
 import { ShoppingBag, Minus, Plus, CreditCard, Sparkles, Trash2 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 
+/** Stripe Checkout refuses to render inside iframes (Bolt/CodeSandbox previews). Break out or open a new tab. */
+function goToStripeCheckout(url: string) {
+  if (typeof window === 'undefined') return;
+
+  const embedded = window.self !== window.top;
+
+  if (!embedded) {
+    window.location.href = url;
+    return;
+  }
+
+  try {
+    if (window.top) {
+      window.top.location.href = url;
+      return;
+    }
+  } catch {
+    /* cross-origin parent — cannot navigate top */
+  }
+
+  const opened = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!opened || opened.closed) {
+    alert(
+      'Stripe Checkout cannot load inside this embedded preview. Allow popups for this site, or open your deployed app in a full browser tab (for example after deploying to Vercel).'
+    );
+  }
+}
+
 export default function CheckoutPage() {
   const { cartItems, updateQuantity, removeItem } = useCart();
   const [processing, setProcessing] = useState(false);
@@ -76,7 +104,7 @@ export default function CheckoutPage() {
       if (url) {
         console.log('🟢 [CHECKOUT] Checkout URL received:', url);
         console.log('🟢 [CHECKOUT] Redirecting to Stripe checkout...');
-        window.location.href = url;
+        goToStripeCheckout(url);
         return; // Don't set processing to false, let the redirect happen
       }
 
@@ -86,7 +114,7 @@ export default function CheckoutPage() {
         // This shouldn't happen with the new API, but just in case
         const checkoutUrl = `https://checkout.stripe.com/pay/${sessionId}`;
         console.log('🟢 [CHECKOUT] Redirecting to:', checkoutUrl);
-        window.location.href = checkoutUrl;
+        goToStripeCheckout(checkoutUrl);
         return;
       }
 
