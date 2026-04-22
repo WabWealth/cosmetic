@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
+function stripeErrorParts(error: unknown): { message: string; code: string } {
+  if (error && typeof error === 'object') {
+    const e = error as Record<string, unknown>;
+    const raw = e.raw as Record<string, unknown> | undefined;
+    const message =
+      (typeof e.message === 'string' && e.message) ||
+      (typeof raw?.message === 'string' && raw.message) ||
+      (typeof (raw?.error as Record<string, unknown> | undefined)?.message === 'string' &&
+        String((raw?.error as { message: string }).message)) ||
+      'Stripe request failed — see server logs.';
+    const code =
+      (typeof e.code === 'string' && e.code) ||
+      (typeof e.type === 'string' && e.type) ||
+      (typeof raw?.code === 'string' && raw.code) ||
+      'UNKNOWN';
+    return { message, code };
+  }
+  return { message: String(error), code: 'UNKNOWN' };
+}
+
 export async function POST(request: NextRequest) {
   console.log('🔵 [STRIPE API] Request received');
 
@@ -109,20 +129,21 @@ export async function POST(request: NextRequest) {
       sessionId: session.id,
       url: session.url,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const { message, code } = stripeErrorParts(error);
     console.error('❌ [STRIPE API] Error creating checkout session:');
-    console.error('❌ [STRIPE API] Error type:', error?.constructor?.name);
-    console.error('❌ [STRIPE API] Error message:', error?.message);
-    console.error('❌ [STRIPE API] Error code:', error?.code);
-    console.error('❌ [STRIPE API] Error statusCode:', error?.statusCode);
-    console.error('❌ [STRIPE API] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
-    console.error('❌ [STRIPE API] Stack trace:', error?.stack);
-    
+    console.error('❌ [STRIPE API] Resolved message:', message);
+    console.error('❌ [STRIPE API] Resolved code:', code);
+    console.error(
+      '❌ [STRIPE API] Full error:',
+      JSON.stringify(error, Object.getOwnPropertyNames(Object(error)), 2)
+    );
+
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to create checkout session',
-        details: error?.message || 'Unknown error',
-        code: error?.code || 'UNKNOWN',
+        details: message,
+        code,
       },
       { status: 500 }
     );
