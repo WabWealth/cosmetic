@@ -31,14 +31,34 @@ export default function CheckoutPage() {
       };
       
       console.log('🟢 [CHECKOUT] Sending request to API:', JSON.stringify(requestBody, null, 2));
-      
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
+
+      // Bolt/WebContainer sometimes leaves fetch hanging if the API route cannot reach Stripe.
+      const controller = new AbortController();
+      const checkoutTimeoutMs = 45_000;
+      const timeoutId = setTimeout(() => controller.abort(), checkoutTimeoutMs);
+
+      let response: Response;
+      try {
+        response = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+      } catch (fetchErr: unknown) {
+        const name = fetchErr && typeof fetchErr === 'object' && 'name' in fetchErr ? (fetchErr as Error).name : '';
+        if (name === 'AbortError') {
+          alert(
+            `Checkout timed out after ${checkoutTimeoutMs / 1000}s. The server may not be able to reach Stripe from this environment (try Vercel), or STRIPE_SECRET_KEY is missing on the server.`
+          );
+          return;
+        }
+        throw fetchErr;
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       console.log('🟢 [CHECKOUT] Response status:', response.status);
       console.log('🟢 [CHECKOUT] Response ok:', response.ok);
@@ -63,7 +83,6 @@ export default function CheckoutPage() {
           .join(' ')
           .trim();
         alert(`Error: ${detailMsg || responseData.error || 'Failed to create checkout session'}`);
-        setProcessing(false);
         return;
       }
 
@@ -72,7 +91,6 @@ export default function CheckoutPage() {
       if (responseError) {
         console.error('❌ [CHECKOUT] Error in response:', responseData);
         alert(`Error: ${responseError}`);
-        setProcessing(false);
         return;
       }
 
@@ -96,7 +114,6 @@ export default function CheckoutPage() {
 
       console.error('❌ [CHECKOUT] No session URL or ID in response:', responseData);
       alert('Error: No checkout URL received from server');
-      setProcessing(false);
     } catch (error: any) {
       console.error('❌ [CHECKOUT] Error in checkout process:');
       console.error('❌ [CHECKOUT] Error type:', error?.constructor?.name);
